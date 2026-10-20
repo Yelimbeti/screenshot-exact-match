@@ -1,36 +1,97 @@
 import type { ExtractedQuestion } from "./types";
 
-const JUNK =
-  /^(candidate|roll|participant|application|test centre|test center|venue|exam|subject|test date|test time|question id|option id|status|chosen option|correct answer|given answer|marks?|section|question type|answered|not answered|marked for review|ans\b|answer\b)/i;
-const Q_START = /^(?:Q(?:ue)?s?(?:tion)?\.?\s*(?:No\.?)?\s*)(\d{1,3})\s*[.:)\-]?\s*(.*)$/i;
-const OPT = /^\(?([A-Ha-h]|[1-8])\s*[).:]\s*(.+)$/;
+const OPT = /^[\(\[]?([A-Da-d]|[1-4])\s*[).:,\]]\s*(.+)$/;
+const STOP = /^(ans\b|question id|status\s*:|chosen option)/i;
+const LETTERS = ["A", "B", "C", "D"];
 
-export function parsePageText(text: string, carry: ExtractedQuestion | null) {
-  const out: ExtractedQuestion[] = [];
-  let cur = carry;
-  const lines = text.split(/\r?\n/).map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean);
-  for (const line of lines) {
-    if (JUNK.test(line)) continue;
-    const q = line.match(Q_START);
-    if (q) {
-      if (cur && cur !== carry) out.push(cur);
-      cur = { number: q[1] ?? "", question: q[2] ?? "", options: [], unreadable: false };
-      continue;
+function rawIndex(raw: string) {
+  const r = raw.toUpperCase();
+  return /\d/.test(r) ? Number(r) - 1 : LETTERS.indexOf(r);
+}
+
+/** Parse OCR text of ONE isolated question box. Max 4 options (A-D). */
+export function parseQuestionBlock(number: string, text: string): ExtractedQuestion {
+  const lines: string[] = [];
+  for (const l of text.split(/\r?\n/)) {
+    const s = l.replace(/\s+/g, " ").trim();
+    if (!s) continue;
+    if (STOP.test(s)) break;
+    lines.push(s);
+  }
+
+  // Pass 1: strict option detection, in order A->D.
+  const starts: { line: number; idx: number; text: string }[] = [];
+  let expect = 0;
+  lines.forEach((s, i) => {
+    if (i === 0 || expect > 3) return;
+    const o = s.match(OPT);
+    if (!o) return;
+    const idx = rawIndex(o[1] ?? "");
+    if (idx >= expect && idx <= 3) {
+      starts.push({ line: i, idx, text: o[2] ?? "" });
+      expect = idx + 1;
     }
-    if (!cur) continue;
-    const o = line.match(OPT);
-    if (o) {
-      const raw = (o[1] ?? "").toUpperCase();
-      const label = /\d/.test(raw) ? String.fromCharCode(64 + Number(raw)) : raw;
-      cur.options.push({ label, text: o[2] ?? "" });
-    } else if (cur.options.length === 0) {
-      cur.question = (cur.question + " " + line).trim();
-    } else {
-      const last = cur.options[cur.options.length - 1]!;
-      last.text = (last.text + " " + line).trim();
+  });
+
+  // Pass 2: repair missing labels (OCR often drops the "." e.g. "A7i").
+  const loose = (s: string, idx: number) => {
+    const m = s.match(/^\(?([A-D1-4])\s*[).:,]?\s*(.+)$/i);
+    return m && rawIndex(m[1]!) === idx ? m[2]! : null;
+  };
+  for (let k = 0; k <= starts.length; k++) {
+    const prevIdx = k === 0 ? -1 : starts[k - 1]!.idx;
+    const nextIdx = k < starts.length ? starts[k]!.idx : 4;
+    if (nextIdx - prevIdx !== 2) continue;
+    const missing = prevIdx + 1;
+    const from = k === 0 ? 1 : starts[k - 1]!.line + 1;
+    const to = k < starts.length ? starts[k]!.line : lines.length;
+    // search backwards from the gap end (closest line to the next option)
+    for (let li = to - 1; li >= from; li--) {
+      const t = loose(lines[li]!, missing);
+      if (t) {
+        starts.splice(k, 0, { line: li, idx: missing, text: t });
+        break;
+      }
     }
   }
-  if (cur && cur !== carry) out.push(cur);
-  for (const q of out) q.unreadable = q.question.length < 3;
-  return { questions: out, last: cur };
+
+  const firstOpt = starts[0]?.line ?? lines.length;
+  const q: ExtractedQuestion = {
+    number,
+    question: lines.slice(0, firstOpt).join(" ").trim(),
+    options: starts.map((s, k) => {
+      const end = starts[k + 1]?.line ?? lines.length;
+      const extra = lines.slice(s.line + 1, end).join(" ");
+      return { label: LETTERS[s.idx]!, text: (s.text + " " + extra).trim() };
+    }),
+    unreadable: false,
+  };
+
+  // Pass 3: options that OCR glued onto the end of the previous line.
+  for (let idx = 0; idx < 4; idx++) {
+    if (q.options.some((o) => o.label === LETTERS[idx])) continue;
+    const prevI = q.options.findIndex((o) => LETTERS.indexOf(o.label) > idx) - 1;
+    const L = LETTERS[idx]!;
+    const D = String(idx + 1);
+    const re = new RegExp(`\\s\\(?(?:${L}|${D})[a-z©]?\\s*[.):]?\\s*(\\S.{0,40})$`);
+    if (prevI === -1 || (prevI === -2 && q.options.length === 0)) {
+      if (prevI === -2) continue;
+      const m = q.question.match(re);
+      if (m && m.index! > 10) {
+        q.question = q.question.slice(0, m.index).trim();
+        q.options.unshift({ label: L, text: m[1]!.trim() });
+      }
+      continue;
+    }
+    const host = prevI >= 0 ? q.options[prevI] : q.options[q.options.length - 1];
+    if (!host || LETTERS.indexOf(host.label) !== idx - 1) continue;
+    const m = host.text.match(re);
+    if (m && m.index! > 0) {
+      host.text = host.text.slice(0, m.index).trim();
+      const at = q.options.indexOf(host) + 1;
+      q.options.splice(at, 0, { label: L, text: m[1]!.trim() });
+    }
+  }
+  q.unreadable = q.question.length < 3;
+  return q;
 }
