@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useRef, useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
 import { FileText, UploadCloud, Download, Loader2, AlertTriangle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { extractPage, type ExtractedQuestion } from "@/lib/extract.functions";
+import type { ExtractedQuestion } from "@/lib/types";
+import { parsePageText } from "@/lib/local-parse";
 import { mergeQuestions, toTxt } from "@/lib/format";
 
 export const Route = createFileRoute("/")({
@@ -22,7 +22,6 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const extract = useServerFn(extractPage);
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [drag, setDrag] = useState(false);
@@ -53,16 +52,16 @@ function Index() {
       const { loadPages, ocr } = await import("@/lib/pdf-client");
       const doc = await loadPages(file);
       const collected: ExtractedQuestion[] = [];
+      let carry: ExtractedQuestion | null = null;
       for (let n = 1; n <= doc.count; n++) {
         const step = 100 / doc.count;
         setStatus(`Page ${n} of ${doc.count}: reading text`);
-        const { pdfText, canvas, image } = await doc.render(n);
+        const { canvas } = await doc.render(n);
         setProgress((n - 1) * step + step * 0.2);
-        setStatus(`Page ${n} of ${doc.count}: running OCR`);
+        setStatus(`Page ${n} of ${doc.count}: reading questions (OCR)`);
         const ocrText = await ocr(canvas);
-        setProgress((n - 1) * step + step * 0.5);
-        setStatus(`Page ${n} of ${doc.count}: AI vision matching`);
-        const res = await extract({ data: { pageNumber: n, image, pdfText: pdfText.slice(0, 40000), ocrText: ocrText.slice(0, 40000) } });
+        const res = parsePageText(ocrText, carry);
+        carry = res.last;
         collected.push(...res.questions);
         setQuestions(mergeQuestions(collected));
         setProgress(n * step);

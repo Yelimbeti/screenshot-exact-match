@@ -1,4 +1,4 @@
-import type { ExtractedQuestion } from "./extract.functions";
+import type { ExtractedQuestion } from "./types";
 
 const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
 

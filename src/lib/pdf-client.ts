@@ -15,7 +15,7 @@ export async function loadPages(file: File) {
       canvas.width = viewport.width;
       canvas.height = viewport.height;
       await page.render({ canvasContext: canvas.getContext("2d")!, viewport, canvas } as any).promise;
-      return { pdfText, canvas, image: canvas.toDataURL("image/jpeg", 0.85) };
+      return { pdfText, canvas, image: "" };
     },
   };
 }
