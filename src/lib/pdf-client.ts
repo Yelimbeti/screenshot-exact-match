@@ -22,7 +22,7 @@ export async function loadPages(file: File) {
         const h = (it.height || 9) * SCALE;
         const top = vy - h;
         const q = s.match(/^Q\.?\s*(\d{1,3})$/i);
-        if (q) markers.push({ kind: "Q", num: q[1], y: top });
+        if (q) markers.push({ kind: "Q", num: q[1] ?? "", y: top });
         else if (/^Ans$/i.test(s)) markers.push({ kind: "ANS", y: top });
       }
       markers.sort((a, b) => a.y - b.y);
