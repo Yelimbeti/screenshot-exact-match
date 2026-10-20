@@ -116,7 +116,7 @@ function Index() {
   const flagged = questions.filter((q) => q.unreadable).length;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <header className="mx-auto flex max-w-5xl items-center gap-2 px-6 py-6">
         <div className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground shadow-soft">
           <FileText className="h-5 w-5" />
@@ -132,7 +132,7 @@ function Index() {
           </p>
         </section>
 
-        <section className="mt-10 rounded-3xl border bg-card p-6 shadow-soft">
+        <section className="mt-10 rounded-3xl border bg-card/80 p-6 shadow-soft backdrop-blur-sm">
           <div
             onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
             onDragLeave={() => setDrag(false)}
@@ -180,7 +180,7 @@ function Index() {
             </div>
             <div className="space-y-4">
               {questions.map((q, i) => (
-                <article key={i} className={`rounded-2xl border bg-card p-5 shadow-soft ${q.unreadable ? "border-destructive/50" : ""}`}>
+                <article key={i} className={`rounded-2xl border bg-card/85 p-5 shadow-soft backdrop-blur-sm ${q.unreadable ? "border-destructive/50" : ""}`}>
                   <p className="font-medium">
                     <span className="text-primary">Question {q.number || i + 1}:</span>{" "}
                     {q.unreadable && <span className="text-destructive">[Unreadable – review] </span>}

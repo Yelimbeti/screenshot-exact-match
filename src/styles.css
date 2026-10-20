@@ -66,7 +66,10 @@
 
 :root {
   --radius: 0.875rem;
-  --background: oklch(0.99 0.004 250);
+  --background: oklch(0.972 0.014 250);
+  --bg-glow-a: oklch(0.93 0.06 255 / 70%);
+  --bg-glow-b: oklch(0.95 0.05 195 / 60%);
+  --bg-glow-c: oklch(0.94 0.04 300 / 40%);
   --foreground: oklch(0.22 0.03 260);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.22 0.03 260);
@@ -133,6 +136,9 @@
   --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.551 0.027 264.364);
+  --bg-glow-a: oklch(0.32 0.09 258 / 55%);
+  --bg-glow-b: oklch(0.28 0.07 200 / 50%);
+  --bg-glow-c: oklch(0.3 0.08 300 / 35%);
 }
 
 @layer base {
@@ -142,6 +148,15 @@
 
   body {
     background-color: var(--color-background);
+    background-image:
+      radial-gradient(900px 520px at 8% -10%, var(--bg-glow-a), transparent 62%),
+      radial-gradient(820px 480px at 96% 2%, var(--bg-glow-b), transparent 60%),
+      radial-gradient(700px 420px at 50% 108%, var(--bg-glow-c), transparent 65%);
+    background-size: 100% 100%;
+    background-position: center top;
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+    background-repeat: no-repeat;
     color: var(--color-foreground);
     font-family: var(--font-sans);
   }
