@@ -26,7 +26,7 @@ export function parsePageText(text: string, carry: ExtractedQuestion | null) {
     } else if (cur.options.length === 0) {
       cur.question = (cur.question + " " + line).trim();
     } else {
-      const last = cur.options[cur.options.length - 1];
+      const last = cur.options[cur.options.length - 1]!;
       last.text = (last.text + " " + line).trim();
     }
   }
