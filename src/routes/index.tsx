@@ -116,7 +116,7 @@ function Index() {
   const flagged = questions.filter((q) => q.unreadable).length;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <header className="mx-auto flex max-w-5xl items-center gap-2 px-6 py-6">
         <div className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground shadow-soft">
           <FileText className="h-5 w-5" />
