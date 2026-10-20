@@ -78,11 +78,29 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "ION Question Extractor AI" },
-      { name: "description", content: "Extract questions and options from ION response-sheet PDFs." },
+      
+      {
+        name: "google-site-verification",
+        content: "pMxTso6kNQrX4vbrVeGt5EafbOk8_zezNI3rmNDUyd8",
+      },
+
+      
+      { title: "ION Response Sheet Question Extractor AI | PDF to Questions" },
+      {
+        name: "description",
+        content: "Extract questions and answer options from ION Digital response sheet PDFs using AI. Upload your exam response sheet to extract readable questions and options quickly."
+      },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
+      {
+        property: "og:title",
+        content: "ION Response Sheet Question Extractor AI"
+      },
+      {
+        property: "og:description",
+        content: "AI-powered extraction of questions and options from ION Digital exam response sheet PDFs."
+      },
+      { name: "twitter:card", content: "summary" },
+
     ],
     links: [
       {
