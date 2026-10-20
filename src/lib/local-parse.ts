@@ -14,15 +14,15 @@ export function parsePageText(text: string, carry: ExtractedQuestion | null) {
     const q = line.match(Q_START);
     if (q) {
       if (cur && cur !== carry) out.push(cur);
-      cur = { number: q[1], question: q[2], options: [], unreadable: false };
+      cur = { number: q[1] ?? "", question: q[2] ?? "", options: [], unreadable: false };
       continue;
     }
     if (!cur) continue;
     const o = line.match(OPT);
     if (o) {
-      const raw = o[1].toUpperCase();
+      const raw = (o[1] ?? "").toUpperCase();
       const label = /\d/.test(raw) ? String.fromCharCode(64 + Number(raw)) : raw;
-      cur.options.push({ label, text: o[2] });
+      cur.options.push({ label, text: o[2] ?? "" });
     } else if (cur.options.length === 0) {
       cur.question = (cur.question + " " + line).trim();
     } else {
