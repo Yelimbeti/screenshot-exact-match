@@ -4,8 +4,8 @@ import { FileText, UploadCloud, Download, Loader2, AlertTriangle, X } from "luci
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import type { ExtractedQuestion } from "@/lib/types";
-import { parsePageText } from "@/lib/local-parse";
-import { mergeQuestions, toTxt } from "@/lib/format";
+import { parseQuestionBlock } from "@/lib/local-parse";
+import { toTxt } from "@/lib/format";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -49,23 +49,50 @@ function Index() {
     setQuestions([]);
     setProgress(2);
     try {
-      const { loadPages, ocr } = await import("@/lib/pdf-client");
+      const { loadPages, ocr, crop } = await import("@/lib/pdf-client");
       const doc = await loadPages(file);
       const collected: ExtractedQuestion[] = [];
-      let carry: ExtractedQuestion | null = null;
+      // A question whose box continues onto the next page.
+      let pending: { num: string; text: string } | null = null;
+      const finish = (num: string, text: string) => {
+        collected.push(parseQuestionBlock(num, text));
+        setQuestions([...collected]);
+      };
       for (let n = 1; n <= doc.count; n++) {
         const step = 100 / doc.count;
-        setStatus(`Page ${n} of ${doc.count}: reading text`);
-        const { canvas } = await doc.render(n);
-        setProgress((n - 1) * step + step * 0.2);
-        setStatus(`Page ${n} of ${doc.count}: reading questions (OCR)`);
-        const ocrText = await ocr(canvas);
-        const res = parsePageText(ocrText, carry);
-        carry = res.last;
-        collected.push(...res.questions);
-        setQuestions(mergeQuestions(collected));
+        setStatus(`Page ${n} of ${doc.count}: locating questions`);
+        const { canvas, markers, scale } = await doc.render(n);
+        const x0 = 64 * scale;
+        const w = canvas.width - x0 - 10 * scale;
+        const pageTop = 28 * scale;
+        const grab = async (y1: number, y2: number) =>
+          y2 - y1 > 8 * scale ? await ocr(crop(canvas, x0, y1, w, y2 - y1)) : "";
+
+        if (pending) {
+          const firstStop = markers[0]?.y ?? canvas.height;
+          const t = await grab(pageTop, firstStop);
+          const p = pending as { num: string; text: string };
+          pending = null;
+          if (markers[0]?.kind === "ANS" || markers.length === 0 && false) finish(p.num, p.text + "\n" + t);
+          else if (markers.length === 0) pending = { num: p.num, text: p.text + "\n" + t };
+          else finish(p.num, p.text + "\n" + t);
+        }
+
+        const qs = markers.filter((m) => m.kind === "Q");
+        for (let i = 0; i < qs.length; i++) {
+          const m = qs[i]!;
+          setStatus(`Page ${n} of ${doc.count}: reading Q.${m.num}`);
+          const next = markers.find((k) => k.y > m.y + 2);
+          const y1 = m.y - 3 * scale;
+          const y2 = next ? next.y - 2 * scale : canvas.height - 20 * scale;
+          const t = await grab(y1, y2);
+          if (!next) pending = { num: m.num ?? "", text: t };
+          else finish(m.num ?? "", t);
+          setProgress((n - 1) * step + step * ((i + 1) / qs.length));
+        }
         setProgress(n * step);
       }
+      if (pending) finish(pending.num, pending.text);
       setStatus("Done");
     } catch (e: any) {
       setError(e?.message ?? "Extraction failed.");
