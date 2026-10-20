@@ -66,6 +66,32 @@ export function parseQuestionBlock(number: string, text: string): ExtractedQuest
     }),
     unreadable: false,
   };
+
+  // Pass 3: options that OCR glued onto the end of the previous line.
+  for (let idx = 0; idx < 4; idx++) {
+    if (q.options.some((o) => o.label === LETTERS[idx])) continue;
+    const prevI = q.options.findIndex((o) => LETTERS.indexOf(o.label) > idx) - 1;
+    const L = LETTERS[idx]!;
+    const D = String(idx + 1);
+    const re = new RegExp(`\\s\\(?(?:${L}|${D})[a-z©]?\\s*[.):]?\\s*(\\S.{0,40})$`);
+    if (prevI === -1 || (prevI === -2 && q.options.length === 0)) {
+      if (prevI === -2) continue;
+      const m = q.question.match(re);
+      if (m && m.index! > 10) {
+        q.question = q.question.slice(0, m.index).trim();
+        q.options.unshift({ label: L, text: m[1]!.trim() });
+      }
+      continue;
+    }
+    const host = prevI >= 0 ? q.options[prevI] : q.options[q.options.length - 1];
+    if (!host || LETTERS.indexOf(host.label) !== idx - 1) continue;
+    const m = host.text.match(re);
+    if (m && m.index! > 0) {
+      host.text = host.text.slice(0, m.index).trim();
+      const at = q.options.indexOf(host) + 1;
+      q.options.splice(at, 0, { label: L, text: m[1]!.trim() });
+    }
+  }
   q.unreadable = q.question.length < 3;
   return q;
 }
